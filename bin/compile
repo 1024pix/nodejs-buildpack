@@ -114,6 +114,7 @@ meta_set "build-step" "init"
 [ -e "$BUILD_DIR/node_modules" ] && PREBUILD=true || PREBUILD=false
 [ -f "$BUILD_DIR/yarn.lock" ] && YARN=true || YARN=false
 [ -f "$BUILD_DIR/package-lock.json" ] && NPM_LOCK=true || NPM_LOCK=false
+[ -f "$BUILD_DIR/pnpm-lock.yaml" ] && PNPM_LOCK=true || PNPM_LOCK=false
 YARN_2=$(detect_yarn_2 "$YARN" "$BUILD_DIR")
 
 ### Save build info
@@ -213,6 +214,7 @@ install_bins() {
   node_engine=$(read_json "$BUILD_DIR/package.json" ".engines.node")
   npm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.npm")
   yarn_engine=$(read_json "$BUILD_DIR/package.json" ".engines.yarn")
+  pnpm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.pnpm")
 
   if [[ "$YARN_2" == "true" && -n "$yarn_engine" ]]; then
     warn "You don't need to specify Yarn engine. Scalingo will install the latest Yarn 1.x, so that per project version can be used. More information here: https://yarnpkg.com/getting-started/install#global-install"
@@ -227,11 +229,15 @@ install_bins() {
   meta_set "node-version-request" "$node_engine"
   meta_set "npm-version-request" "$npm_engine"
   meta_set "yarn-version-request" "$yarn_engine"
+  meta_set "pnpm-version-request" "$pnpm_engine"
 
   echo "engines.node (package.json):  ${node_engine:-unspecified}"
   echo "engines.npm (package.json):   ${npm_engine:-unspecified (use default)}"
   if $YARN || [ -n "$yarn_engine" ]; then
     echo "engines.yarn (package.json):  ${yarn_engine:-unspecified (use default)}"
+  fi
+  if $PNPM || [ -n "$pnpm_engine" ]; then
+    echo "engines.pnpm (package.json):  ${pnpm_engine:-unspecified (use default)}"
   fi
   echo ""
 
@@ -255,9 +261,20 @@ install_bins() {
     monitor "install-yarn-binary" install_yarn "$BUILD_DIR/.scalingo/yarn" "$yarn_engine"
   fi
 
+  # Download pnpm if there is a pnpm-lock.yaml file or if the user
+  # has specified a version of pnpm under "engines". We'll still
+  # only install using pnpm if there is a pnpm-lock.yaml file
+  if $PNPM || [ -n "$pnpm_engine" ]; then
+    meta_set "build-step" "install-pnpm"
+    monitor "install-pnpm-binary" install_pnpm "$pnpm_engine"
+  fi
+
   if $YARN; then
     mcount "version.yarn.$(yarn --version)"
     meta_set "yarn-version" "$(yarn --version)"
+  elif $PNPM; then
+    mcount "version.pnpm.$(pnpm --version)"
+    meta_set "pnpm-version" "$(pnpm --version)"
   else
     mcount "version.npm.$(npm --version)"
     meta_set "npm-version" "$(npm --version)"
@@ -342,6 +359,8 @@ build_dependencies() {
     yarn_2_install "$BUILD_DIR"
   elif $YARN; then
     yarn_node_modules "$BUILD_DIR"
+  elif $PNPM; then
+    pnpm_node_modules "$BUILD_DIR"
   elif $PREBUILD; then
     echo "Prebuild detected (node_modules already exists)"
     npm_rebuild "$BUILD_DIR"
@@ -386,6 +405,8 @@ cache_build() {
 prune_devdependencies() {
   if $YARN || $YARN_2; then
     yarn_prune_devdependencies "$BUILD_DIR" "$YARN_CACHE_FOLDER" "$BP_DIR"
+  elif $PNPM; then
+    pnpm_prune_devdependencies "$BUILD_DIR"
   else
     npm_prune_devdependencies "$BUILD_DIR"
   fi
@@ -403,6 +424,12 @@ elif "$YARN" && "$USE_YARN_CACHE" && [[ "$(get_cache_directories "$BUILD_DIR")" 
   prune_devdependencies | output "$LOG_FILE"
   meta_set "build-step" "save-cache"
   cache_build | output "$LOG_FILE"
+elif $PNPM; then
+  meta_set "build-step" "save-cache"
+  cache_build | output "$LOG_FILE"
+  meta_set "build-step" "prune-dependencies"
+  header "Pruning devDependencies" | output "$LOG_FILE"
+  prune_devdependencies | output "$LOG_FILE"
 else
   meta_set "build-step" "save-cache"
   cache_build | output "$LOG_FILE"
