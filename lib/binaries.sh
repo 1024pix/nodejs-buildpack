@@ -65,6 +65,14 @@ install_yarn() {
   fi
 }
 
+install_pnpm() {
+  local version=${1:-latest}
+  echo "Downloading and installing pnpm ($version)"
+  npm install --global "pnpm@${version}"
+  pnpm config set store-dir "$CACHE_DIR"/.pnpm-store
+  echo "pnpm $(pnpm --version) installed"
+}
+
 install_nodejs() {
   local version="${1:-}"
   local dir="${2:?}"
