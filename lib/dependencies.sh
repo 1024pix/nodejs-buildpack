@@ -169,6 +169,7 @@ pnpm_prune_devdependencies() {
     return 0
   else
     cd "$build_dir" || return
+    export CI=true
     monitor "pnpm-prune" pnpm prune --prod 2>&1
     meta_set "skipped-prune" "false"
   fi
