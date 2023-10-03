@@ -63,6 +63,7 @@ source "$BP_DIR/lib/builddata.sh"
 source "$BP_DIR/lib/yarn-2.sh"
 # Load meteor framework related functions
 source $BP_DIR/bin/meteor.sh
+
 if test -n "$meteor_version" ; then
   # Most Meteor projects are using React or equivalent and all these
   # dependencies are in dev usually. We had way too much support because of
@@ -407,6 +408,7 @@ prune_devdependencies() {
     yarn_prune_devdependencies "$BUILD_DIR" "$YARN_CACHE_FOLDER" "$BP_DIR"
   elif $PNPM; then
     pnpm_prune_devdependencies "$BUILD_DIR"
+    pnpm_replace_links "$BUILD_DIR"
   else
     npm_prune_devdependencies "$BUILD_DIR"
   fi
