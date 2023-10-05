@@ -153,7 +153,7 @@ pnpm_replace_links() {
   local build_dir=${1:-}
 
   echo "Replacing node_modules symlinks by actual dependencies"
-  monitor "pnpm-replace-links" find "$build_dir"/node_modules -type l -exec "$BP_DIR/lib/link-to-dir.sh" {} +
+  monitor "pnpm-replace-links" "$BP_DIR/lib/link-to-dir.sh"
 }
 
 pnpm_prune_devdependencies() {
