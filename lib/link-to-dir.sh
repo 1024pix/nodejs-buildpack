@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
 
-set -e
-for link; do
-    test -h "$link" || continue
 
-    dir=$(dirname "$link")
+cp -r ../node_modules/.pnpm node_modules/
+links=$(find node_modules/ -path node_modules/.pnpm -prune -o -type l -print)
+for link in $links
+do
     reltarget=$(readlink "$link")
-    case $reltarget in
-        /*) abstarget=$reltarget;;
-        *)  abstarget=$dir/$reltarget;;
-    esac
+    newtarget=$(echo $reltarget | sed -e 's/..\/..\/node_modules\///g')
 
     rm -fv "$link"
-    cp -afv "$abstarget" "$link" || {
-        # on failure, restore the symlink
-        rm -rfv "$link"
-        ln -sfv "$reltarget" "$link"
-    }
+    ln -s $newtarget $link
 done
-
